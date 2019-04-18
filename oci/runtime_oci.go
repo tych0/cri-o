@@ -124,16 +124,19 @@ func (r *runtimeOCI) CreateContainer(c *Container, cgroupParent string) (err err
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if c.terminal {
+		fmt.Printf("setting stderr to go somewhere else")
 		cmd.Stderr = &stderrBuf
 	}
 	cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe, childStartPipe)
 	// 0, 1 and 2 are stdin, stdout and stderr
-	cmd.Env = append(r.conmonEnv, fmt.Sprintf("_OCI_SYNCPIPE=%d", 3))
-	cmd.Env = append(cmd.Env, fmt.Sprintf("_OCI_STARTPIPE=%d", 4))
+	fmt.Println("child pipe fd: %d", childPipe.Fd())
+	cmd.Env = append(r.conmonEnv, fmt.Sprintf("_OCI_SYNCPIPE=%d", 3)) //childPipe.Fd()))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("_OCI_STARTPIPE=%d", 4)) // childStartPipe.Fd()))
 	if v, found := os.LookupEnv("XDG_RUNTIME_DIR"); found {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("XDG_RUNTIME_DIR=%s", v))
 	}
 
+	logrus.Warnf("about to start conman for %s", c.name)
 	err = cmd.Start()
 	if err != nil {
 		childPipe.Close()
@@ -390,7 +393,7 @@ func (r *runtimeOCI) ExecSyncContainer(c *Container, command []string, timeout i
 	cmd.Stderr = &stderrBuf
 	cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe)
 	// 0, 1 and 2 are stdin, stdout and stderr
-	cmd.Env = append(r.conmonEnv, fmt.Sprintf("_OCI_SYNCPIPE=%d", 3))
+	cmd.Env = append(r.conmonEnv, fmt.Sprintf("_OCI_SYNCPIPE=%d", 3)) //childPipe.Fd()))
 	if v, found := os.LookupEnv("XDG_RUNTIME_DIR"); found {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("XDG_RUNTIME_DIR=%s", v))
 	}

@@ -958,6 +958,8 @@ int main(int argc, char *argv[])
 	int oom_score_fd = -1;
 
 	/* Command line parameters */
+	g_print("hello world\n");
+	fprintf(stderr, "conmon stderr\n");
 	context = g_option_context_new("- conmon utility");
 	g_option_context_add_main_entries(context, opt_entries, "conmon");
 	if (!g_option_context_parse(context, &argc, &argv, &error)) {
@@ -1027,12 +1029,15 @@ int main(int argc, char *argv[])
 
 	configure_log_drivers(opt_log_path, opt_log_size_max, opt_cuuid, opt_name);
 
+	printf("about to start w reading STARTPIPE\n");
 	start_pipe_fd = get_pipe_fd_from_env("_OCI_STARTPIPE");
+	printf("start_pipe_fd: %d\n", start_pipe_fd);
 	if (start_pipe_fd >= 0) {
 		/* Block for an initial write to the start pipe before
 		   spawning any childred or exiting, to ensure the
 		   parent can put us in the right cgroup. */
 		num_read = read(start_pipe_fd, buf, BUF_SIZE);
+		printf("num_read from start_pipe_fd: %d\n", num_read);
 		if (num_read < 0) {
 			pexit("start-pipe read failed");
 		}
@@ -1060,15 +1065,19 @@ int main(int argc, char *argv[])
 	/* Disconnect stdio from parent. We need to do this, because
 	   the parent is waiting for the stdout to end when the intermediate
 	   child dies */
+	/*
 	if (dup2(dev_null_r, STDIN_FILENO) < 0)
 		pexit("Failed to dup over stdin");
 	if (dup2(dev_null_w, STDOUT_FILENO) < 0)
 		pexit("Failed to dup over stdout");
 	if (dup2(dev_null_w, STDERR_FILENO) < 0)
 		pexit("Failed to dup over stderr");
+	*/
 
 	/* Create a new session group */
+	printf("before setsid\n");
 	setsid();
+	printf("after setsid\n");
 
 	/* Environment variables */
 	sync_pipe_fd = get_pipe_fd_from_env("_OCI_SYNCPIPE");
@@ -1208,6 +1217,7 @@ int main(int argc, char *argv[])
 	 * won't be the case for very long.
 	 */
 
+	printf("about to exec runtime %s\n", (char *)g_ptr_array_index(runtime_argv, 0));
 	/* Create our container. */
 	create_pid = fork();
 	if (create_pid < 0) {
@@ -1289,6 +1299,7 @@ int main(int argc, char *argv[])
 	if (signal(SIGCHLD, on_sigchld) == SIG_ERR)
 		pexit("Failed to set handler for SIGCHLD");
 
+	printf("about to wait\n");
 	if (csname != NULL) {
 		guint terminal_watch = g_unix_fd_add(console_socket_fd, G_IO_IN, terminal_accept_cb, csname);
 		/* Process any SIGCHLD we may have missed before the signal handler was in place.  */
@@ -1309,6 +1320,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	printf("runtime_status: %d\n", runtime_status);
 	if (!WIFEXITED(runtime_status) || WEXITSTATUS(runtime_status) != 0) {
 		if (sync_pipe_fd > 0) {
 			/*
@@ -1324,18 +1336,22 @@ int main(int argc, char *argv[])
 		nexitf("Failed to create container: exit status %d", get_exit_status(runtime_status));
 	}
 
-	if (opt_terminal && masterfd_stdout == -1)
+	if (opt_terminal && masterfd_stdout == -1) {
+		printf("runtime didn't set up a terminal\n");
 		nexit("Runtime did not set up terminal");
+	}
 
 	/* Read the pid so we can wait for the process to exit */
 	g_file_get_contents(opt_container_pid_file, &contents, NULL, &err);
 	if (err) {
+		printf("failed reading pid file %s\n", err->message);
 		nwarnf("Failed to read pidfile: %s", err->message);
 		g_error_free(err);
 		exit(1);
 	}
 
 	container_pid = atoi(contents);
+	printf("container PID: %d", container_pid);
 	ndebugf("container PID: %d", container_pid);
 
 	g_hash_table_insert(pid_to_handler, (pid_t *)&container_pid, container_exit_cb);
