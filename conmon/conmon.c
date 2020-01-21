@@ -798,6 +798,7 @@ static char *setup_attach_socket(void)
 	struct sockaddr_un attach_addr = {0};
 	attach_addr.sun_family = AF_UNIX;
 
+	printf("hi from attach socket\n");
 	/*
 	 * Create a symlink so we don't exceed unix domain socket
 	 * path length limit.
@@ -805,6 +806,7 @@ static char *setup_attach_socket(void)
 	attach_symlink_dir_path = g_build_filename(opt_socket_path, opt_cuuid, NULL);
 	if (unlink(attach_symlink_dir_path) == -1 && errno != ENOENT)
 		pexit("Failed to remove existing symlink for attach socket directory");
+	printf("after unlink\n");
 
 	/*
 	 * This is to address a corner case where the symlink path length can end up to be
@@ -816,8 +818,11 @@ static char *setup_attach_socket(void)
 	if (strlen(attach_symlink_dir_path) == (sizeof(attach_addr.sun_path) - 1))
 		attach_symlink_dir_path[sizeof(attach_addr.sun_path) - 2] = '\0';
 
-	if (symlink(opt_bundle_path, attach_symlink_dir_path) == -1)
+	printf("symlinking %s %s", opt_bundle_path, attach_symlink_dir_path);
+	if (symlink(opt_bundle_path, attach_symlink_dir_path) == -1) {
 		pexit("Failed to create symlink for attach socket");
+	}
+	printf("after symlink\n");
 
 	attach_sock_path = g_build_filename(opt_socket_path, opt_cuuid, "attach", NULL);
 	ninfof("attach sock path: %s", attach_sock_path);
@@ -833,18 +838,23 @@ static char *setup_attach_socket(void)
 	attach_socket_fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (attach_socket_fd == -1)
 		pexit("Failed to create attach socket");
+	printf("after socket\n");
 
 	if (fchmod(attach_socket_fd, 0700))
 		pexit("Failed to change attach socket permissions");
+	printf("after chmod\n");
 
 	if (bind(attach_socket_fd, (struct sockaddr *)&attach_addr, sizeof(struct sockaddr_un)) == -1)
 		pexitf("Failed to bind attach socket: %s", attach_sock_path);
+	printf("after bind\n");
 
 	if (listen(attach_socket_fd, 10) == -1)
 		pexitf("Failed to listen on attach socket: %s", attach_sock_path);
+	printf("after listen\n");
 
 	g_unix_fd_add(attach_socket_fd, G_IO_IN, attach_cb, NULL);
 
+	printf("returning\n");
 	return attach_symlink_dir_path;
 }
 
@@ -1142,6 +1152,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (opt_exec) {
+		printf("crio-lxc execing\n");
 		add_argv(runtime_argv, "exec", "-d", "--pid-file", opt_container_pid_file, NULL);
 	} else {
 		char *command;
@@ -1149,6 +1160,7 @@ int main(int argc, char *argv[])
 			command = "restore";
 		else
 			command = "create";
+		printf("crio-lxc %s-ing\n", command);
 
 		add_argv(runtime_argv, command, "--bundle", opt_bundle_path, "--pid-file", opt_container_pid_file, NULL);
 
@@ -1217,7 +1229,7 @@ int main(int argc, char *argv[])
 	 * won't be the case for very long.
 	 */
 
-	printf("about to exec runtime %s\n", (char *)g_ptr_array_index(runtime_argv, 0));
+	printf("about to exec runtime %s %s\n", (char *)g_ptr_array_index(runtime_argv, 0), (char *)g_ptr_array_index(runtime_argv, 1));
 	/* Create our container. */
 	create_pid = fork();
 	if (create_pid < 0) {
@@ -1299,7 +1311,7 @@ int main(int argc, char *argv[])
 	if (signal(SIGCHLD, on_sigchld) == SIG_ERR)
 		pexit("Failed to set handler for SIGCHLD");
 
-	printf("about to wait\n");
+	printf("about to wait (%s)\n", csname);
 	if (csname != NULL) {
 		guint terminal_watch = g_unix_fd_add(console_socket_fd, G_IO_IN, terminal_accept_cb, csname);
 		/* Process any SIGCHLD we may have missed before the signal handler was in place.  */
@@ -1351,25 +1363,29 @@ int main(int argc, char *argv[])
 	}
 
 	container_pid = atoi(contents);
-	printf("container PID: %d", container_pid);
-	ndebugf("container PID: %d", container_pid);
+	printf("container PID: %d\n", container_pid);
+	ndebugf("container PID: %d\n", container_pid);
 
 	g_hash_table_insert(pid_to_handler, (pid_t *)&container_pid, container_exit_cb);
 
 	/* Setup endpoint for attach */
 	_cleanup_free_ char *attach_symlink_dir_path = NULL;
 	if (!opt_exec) {
+		printf("attach socket\n");
 		attach_symlink_dir_path = setup_attach_socket();
 	}
 
 	if (!opt_exec) {
+		printf("control fifo\n");
 		setup_terminal_control_fifo();
 	}
 
+	printf("sending container pid back to parent\n");
 	/* Send the container pid back to parent */
 	if (!opt_exec) {
 		write_sync_fd(sync_pipe_fd, container_pid, NULL);
 	}
+
 
 	setup_oom_handling(container_pid);
 
@@ -1384,6 +1400,7 @@ int main(int argc, char *argv[])
 		g_timeout_add_seconds(opt_timeout, timeout_cb, NULL);
 	}
 
+	printf("check child processes\n");
 	check_child_processes(pid_to_handler);
 
 	g_main_loop_run(main_loop);
@@ -1402,6 +1419,7 @@ int main(int argc, char *argv[])
 
 	sync_logs();
 
+	printf("exit status setting\n");
 	int exit_status = -1;
 	const char *exit_message = NULL;
 

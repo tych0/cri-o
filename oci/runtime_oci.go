@@ -179,8 +179,10 @@ func (r *runtimeOCI) CreateContainer(c *Container, cgroupParent string) (err err
 	ch := make(chan syncStruct)
 	go func() {
 		var si *syncInfo
-		if err = json.NewDecoder(parentPipe).Decode(&si); err != nil {
-			ch <- syncStruct{err: err}
+		buf := &bytes.Buffer{}
+		r := io.TeeReader(parentPipe, buf)
+		if err = json.NewDecoder(r).Decode(&si); err != nil {
+			ch <- syncStruct{err: fmt.Errorf("%v: %s", err, buf.String())}
 			return
 		}
 		ch <- syncStruct{si: si}
