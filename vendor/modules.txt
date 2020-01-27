@@ -105,7 +105,7 @@ github.com/containers/buildah/pkg/unshare
 github.com/containers/buildah/util
 # github.com/containers/conmon v2.0.9+incompatible
 github.com/containers/conmon/runner/config
-# github.com/containers/image/v5 v5.1.0 => github.com/anuvu/image/v5 v5.0.0-anuvu5
+# github.com/containers/image/v5 v5.1.0 => github.com/tych0/image/v5 v5.0.0-20200127224751-10f024e6d09d
 github.com/containers/image/v5/copy
 github.com/containers/image/v5/directory
 github.com/containers/image/v5/directory/explicitfilepath
@@ -192,7 +192,6 @@ github.com/containers/ocicrypt/keywrap
 github.com/containers/ocicrypt/keywrap/jwe
 github.com/containers/ocicrypt/keywrap/pgp
 github.com/containers/ocicrypt/keywrap/pkcs7
-github.com/containers/ocicrypt/spec
 github.com/containers/ocicrypt/utils
 # github.com/containers/psgo v1.4.0
 github.com/containers/psgo

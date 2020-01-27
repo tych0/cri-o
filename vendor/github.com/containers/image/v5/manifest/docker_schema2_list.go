@@ -81,7 +81,7 @@ func (list *Schema2List) UpdateInstances(updates []ListUpdate) error {
 		if updates[i].MediaType == "" {
 			return errors.Errorf("update %d of %d passed to Schema2List.UpdateInstances had no media type (was %q)", i+1, len(updates), list.Manifests[i].MediaType)
 		}
-		if err := SupportedSchema2MediaType(updates[i].MediaType); err != nil && SupportedOCI1MediaType(updates[i].MediaType) != nil {
+		if err := SupportedSchema2MediaType(updates[i].MediaType); err != nil {
 			return errors.Wrapf(err, "update %d of %d passed to Schema2List.UpdateInstances had an unsupported media type (was %q): %q", i+1, len(updates), list.Manifests[i].MediaType, updates[i].MediaType)
 		}
 		list.Manifests[i].MediaType = updates[i].MediaType

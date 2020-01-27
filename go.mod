@@ -67,7 +67,7 @@ require (
 )
 
 replace (
-	github.com/containers/image/v5 => github.com/anuvu/image/v5 v5.0.0-anuvu5
+	github.com/containers/image/v5 => github.com/tych0/image/v5 v5.0.0-20200127224751-10f024e6d09d
 	github.com/godbus/dbus => github.com/godbus/dbus v0.0.0-20190623212516-8a1682060722
 	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v0.1.2-0.20190408193819-a1b50f621a48
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
