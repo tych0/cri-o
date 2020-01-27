@@ -21,20 +21,20 @@ func newAtomfsServer(ctx context.Context, imgServer Server) (RuntimeServer, erro
 	return &atomfsRuntimeServer{ctx, imgServer.GetStore().GraphRoot(), imgServer.GetStore().RunRoot()}
 }
 
-
-func (ars *atomfsRunteimServer) CreatePodSandbox(systemContext *types.SystemContext, podName, podID, imageName, imageAuthFile, imageID, containerName, metadataName, uid, namespace string, attempt uint32, idMappings *idtools.IDMappings, labelOptions []string) (ContainerInfo, error) {
-	return ars.CreateContainer(...)
+func (ars *atomfsRuntimeServer) CreatePodSandbox(systemContext *types.SystemContext, podName, podID, imageName, imageAuthFile, imageID, containerName, metadataName, uid, namespace string, attempt uint32, idMappings *idtools.IDMappings, labelOptions []string) (ContainerInfo, error) {
+	return ars.CreateContainer(), nil // MMCC: todo, this was ars.CreateContainer(...)
 }
 
 func (ars *atomfsRuntimeServer) RemovePodSandbox(idOrName string) error {
 	return ars.DeleteContainer(idOrName)
 }
 
-	// GetContainerMetadata returns the metadata we've stored for a container.
-	GetContainerMetadata(idOrName string) (RuntimeContainerMetadata, error)
-	// SetContainerMetadata updates the metadata we've stored for a container.
-	SetContainerMetadata(idOrName string, metadata *RuntimeContainerMetadata) error
-
+/* ?
+// GetContainerMetadata returns the metadata we've stored for a container.
+GetContainerMetadata(idOrName string) (RuntimeContainerMetadata, error)
+// SetContainerMetadata updates the metadata we've stored for a container.
+SetContainerMetadata(idOrName string, metadata *RuntimeContainerMetadata) error
+*/
 func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemContext, podName, podID, imageName, imageID, containerName, containerID, metadataName string, attempt uint32, idMappings *idtools.IDMappings, labelOptions []string) (ContainerInfo, error) {
 	if podName == "" || podID == "" {
 		return ContainerInfo{}, ErrInvalidPodName
@@ -69,7 +69,7 @@ func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemConte
 	ci := ContainerInfo{}
 	err = imageCopy(stackerlib.ImageCopyOpts{
 		Src:      imageName,
-		Dest:     fmt.Sprintf("oci:%s/oci:%s", ars.graphRoot, containerName)
+		Dest:     fmt.Sprintf("oci:%s/oci:%s", ars.graphRoot, containerName),
 		Progress: nil,
 	})
 	if err != nil {
@@ -101,12 +101,12 @@ func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemConte
 	}
 
 	return ContainerInfo{
-		ID: containerID,
-		Dir: ars.GetWorkDir
-		RunDir: containerRunDir,
-		Config: imageConfig,
+		ID:           containerID,
+		Dir:          ars.GetWorkDir,
+		RunDir:       containerRunDir,
+		Config:       imageConfig,
 		ProcessLabel: "", // FIXME: selinux labels
-		MountLabel: "",
+		MountLabel:   "",
 	}, nil
 }
 
@@ -130,11 +130,11 @@ func (ars *atomfsRuntimeServer) StartContainer(idOrName string) (string, error) 
 	metadata := path.Join(ars.runtimeDir, "atomfs-metadata")
 	writable := true
 	opts := atomfs.MountOCIOpts{
-		OCIDir: path.Join(ars.graphRoot, "oci"),
+		OCIDir:       path.Join(ars.graphRoot, "oci"),
 		MetadataPath: metadata,
-		Tag: idOrName,
-		Target: mountpoint,
-		Writable: writable,
+		Tag:          idOrName,
+		Target:       mountpoint,
+		Writable:     writable,
 	}
 
 	mol, err := atomfs.BuildMoleculeFromOCI(opts)
@@ -150,11 +150,11 @@ func (ars *atomfsRuntimeServer) StopContainer(idOrName string) error {
 	metadata := path.Join(ars.runtimeDir, "atomfs-metadata")
 	writable := true
 	opts := atomfs.MountOCIOpts{
-		OCIDir: path.Join(ars.graphRoot, "oci"),
+		OCIDir:       path.Join(ars.graphRoot, "oci"),
 		MetadataPath: metadata,
-		Tag: idOrName,
-		Target: mountpoint,
-		Writable: writable,
+		Tag:          idOrName,
+		Target:       mountpoint,
+		Writable:     writable,
 	}
 
 	return atomfs.UnmountOCI(opts)
