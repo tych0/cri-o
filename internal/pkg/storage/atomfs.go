@@ -28,6 +28,7 @@ type atomfsRuntimeServer struct {
 	graphRoot       string
 	runtimeDir      string
 	runtimeMetadata map[string]*RuntimeContainerMetadata
+	idToName        map[string]string
 }
 
 func newAtomfsServer(ctx context.Context, imgServer ImageServer) RuntimeServer {
@@ -36,6 +37,7 @@ func newAtomfsServer(ctx context.Context, imgServer ImageServer) RuntimeServer {
 		imgServer.GetStore().GraphRoot(),
 		imgServer.GetStore().RunRoot(),
 		map[string]*RuntimeContainerMetadata{},
+		map[string]string{},
 	}
 }
 
@@ -133,6 +135,8 @@ func (ars *atomfsRuntimeServer) createContainerOrPodSandbox(systemContext *types
 		return ContainerInfo{}, err
 	}
 
+	ars.idToName[containerID] = containerName
+
 	return ContainerInfo{
 		ID:           containerID,
 		Dir:          containerDir,
@@ -147,6 +151,15 @@ func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemConte
 	return ars.createContainerOrPodSandbox(systemContext, podName, podID, imageName, "", imageID, containerName, containerID, metadataName, "", "", attempt, idMappings, labelOptions, false)
 }
 
+func (ars *atomfsRuntimeServer) resolveName(idOrName string) string {
+	name, ok := ars.idToName[idOrName]
+	if !ok {
+		return idOrName
+	}
+
+	return name
+}
+
 func (ars *atomfsRuntimeServer) DeleteContainer(idOrName string) error {
 	oci, err := umoci.OpenLayout(path.Join(ars.graphRoot, "oci"))
 	if err != nil {
@@ -154,22 +167,26 @@ func (ars *atomfsRuntimeServer) DeleteContainer(idOrName string) error {
 	}
 	defer oci.Close()
 
-	err = oci.DeleteReference(ars.ctx, idOrName)
+	name := ars.resolveName(idOrName)
+
+	err = oci.DeleteReference(ars.ctx, name)
 	if err != nil {
 		return err
 	}
 
+	delete(ars.idToName, idOrName)
 	return oci.GC(ars.ctx)
 }
 
 func (ars *atomfsRuntimeServer) StartContainer(idOrName string) (string, error) {
+	name := ars.resolveName(idOrName)
 	mountpoint := path.Join(ars.runtimeDir, "rootfses", idOrName)
 	metadata := path.Join(ars.runtimeDir, "atomfs-metadata")
 	writable := true
 	opts := atomfs.MountOCIOpts{
 		OCIDir:       path.Join(ars.graphRoot, "oci"),
 		MetadataPath: metadata,
-		Tag:          idOrName,
+		Tag:          name,
 		Target:       mountpoint,
 		Writable:     writable,
 	}
@@ -183,13 +200,14 @@ func (ars *atomfsRuntimeServer) StartContainer(idOrName string) (string, error) 
 }
 
 func (ars *atomfsRuntimeServer) StopContainer(idOrName string) error {
+	name := ars.resolveName(idOrName)
 	mountpoint := path.Join(ars.runtimeDir, "rootfses", idOrName)
 	metadata := path.Join(ars.runtimeDir, "atomfs-metadata")
 	writable := true
 	opts := atomfs.MountOCIOpts{
 		OCIDir:       path.Join(ars.graphRoot, "oci"),
 		MetadataPath: metadata,
-		Tag:          idOrName,
+		Tag:          name,
 		Target:       mountpoint,
 		Writable:     writable,
 	}
@@ -198,12 +216,14 @@ func (ars *atomfsRuntimeServer) StopContainer(idOrName string) error {
 }
 
 func (ars *atomfsRuntimeServer) GetWorkDir(id string) (string, error) {
-	dir := path.Join(ars.graphRoot, "workdir", id)
+	name := ars.resolveName(id)
+	dir := path.Join(ars.graphRoot, "workdir", name)
 	return dir, os.MkdirAll(dir, 0755)
 }
 
 func (ars *atomfsRuntimeServer) GetRunDir(id string) (string, error) {
-	dir := path.Join(ars.runtimeDir, "rundir", id)
+	name := ars.resolveName(id)
+	dir := path.Join(ars.runtimeDir, "rundir", name)
 	return dir, os.MkdirAll(dir, 0755)
 }
 
