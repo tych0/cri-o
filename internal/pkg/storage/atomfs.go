@@ -1,12 +1,13 @@
 package storage
 
 import (
+	"context"
 	"path"
 	"time"
 
 	"github.com/anuvu/atomfs"
-	stackerimage "github.com/anuvu/stacker/lib"
-	stackeroci "github.com/anuvu/stacker/oci"
+	"github.com/containers/image/v5/types"
+	"github.com/containers/storage/pkg/idtools"
 	"github.com/openSUSE/umoci"
 )
 
@@ -55,18 +56,18 @@ func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemConte
 
 	defer oci.Close()
 
-	manifest, err := stackeroci.LookupManifest(oci, containerName)
+	manifest, err := lookupManifest(oci, containerName)
 	if err != nil {
 		return ContainerInfo{}, err
 	}
 
-	config, err := stackeroci.LookupConfig(oci, manifest.Config)
+	config, err := lookupConfig(oci, manifest.Config)
 	if err != nil {
 		return ContainerInfo{}, err
 	}
 
 	ci := ContainerInfo{}
-	err := stackerimage.ImageCopy(stackerlib.ImageCopyOpts{
+	err = imageCopy(stackerlib.ImageCopyOpts{
 		Src:      imageName,
 		Dest:     fmt.Sprintf("oci:%s/oci:%s", ars.graphRoot, containerName)
 		Progress: nil,
@@ -169,4 +170,116 @@ func (ars *atomfsRuntimeServer) GetRunDir(id string) (string, error) {
 	dir := path.Join(ars.runtimeDir, "rundir", id)
 	_, err := os.MkdirAll(dir, 0755)
 	return dir, err
+}
+
+// == dumb brute force gitrdun copy paste to avoid dep on anuvu/stacker/lib
+
+func localRefParser(ref string) (types.ImageReference, error) {
+	parts := strings.SplitN(ref, ":", 2)
+	if len(parts) != 2 {
+		return nil, errors.Errorf("bad image ref: %s", ref)
+	}
+
+	f, ok := urlSchemes[parts[0]]
+	if !ok {
+		return nil, errors.Errorf("unknown url scheme %s for %s", parts[0], ref)
+	}
+
+	return f(parts[1])
+}
+
+type ImageCopyOpts struct {
+	Src          string
+	Dest         string
+	DestUsername string
+	DestPassword string
+	SkipTLS      bool
+	Progress     io.Writer
+}
+
+func ImageCopy(opts ImageCopyOpts) error {
+	srcRef, err := localRefParser(opts.Src)
+	if err != nil {
+		return err
+	}
+
+	destRef, err := localRefParser(opts.Dest)
+	if err != nil {
+		return err
+	}
+
+	// lol. and all this crap is the reason we make everyone install
+	// libgpgme-dev, and we don't even want to use it :(
+	policy, err := signature.NewPolicyContext(&signature.Policy{
+		Default: []signature.PolicyRequirement{
+			signature.NewPRInsecureAcceptAnything(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	args := &copy.Options{
+		ReportWriter: opts.Progress,
+	}
+
+	if opts.SkipTLS {
+		args.SourceCtx = &types.SystemContext{
+			DockerInsecureSkipTLSVerify: types.OptionalBoolTrue,
+		}
+	}
+
+	args.DestinationCtx = &types.SystemContext{
+		OCIAcceptUncompressedLayers: true,
+	}
+
+	if opts.DestUsername != "" {
+		// DoTo check if destination is really a docker URL, maybe it's a zot URL
+		args.DestinationCtx.DockerAuthConfig = &types.DockerAuthConfig{
+			Username: opts.DestUsername,
+			Password: opts.DestPassword,
+		}
+	}
+
+	_, err = copy.Image(context.Background(), policy, destRef, srcRef, args)
+	return err
+}
+
+// from oci.go
+
+func lookupManifest(oci casext.Engine, tag string) (ispec.Manifest, error) {
+	descriptorPaths, err := oci.ResolveReference(context.Background(), tag)
+	if err != nil {
+		return ispec.Manifest{}, err
+	}
+
+	if len(descriptorPaths) != 1 {
+		return ispec.Manifest{}, errors.Errorf("bad descriptor %s", tag)
+	}
+
+	blob, err := oci.FromDescriptor(context.Background(), descriptorPaths[0].Descriptor())
+	if err != nil {
+		return ispec.Manifest{}, err
+	}
+	defer blob.Close()
+
+	if blob.Descriptor.MediaType != ispec.MediaTypeImageManifest {
+		return ispec.Manifest{}, errors.Errorf("descriptor does not point to a manifest: %s", blob.Descriptor.MediaType)
+	}
+
+	return blob.Data.(ispec.Manifest), nil
+}
+
+func lookupConfig(oci casext.Engine, desc ispec.Descriptor) (ispec.Image, error) {
+	configBlob, err := oci.FromDescriptor(context.Background(), desc)
+	if err != nil {
+		return ispec.Image{}, err
+	}
+
+	if configBlob.Descriptor.MediaType != ispec.MediaTypeImageConfig {
+		return ispec.Image{}, fmt.Errorf("bad image config type: %s", configBlob.Descriptor.MediaType)
+	}
+
+	return configBlob.Data.(ispec.Image), nil
+
 }
