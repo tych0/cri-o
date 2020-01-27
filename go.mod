@@ -5,6 +5,7 @@ module github.com/cri-o/cri-o
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
+	github.com/anuvu/atomfs v0.0.0-20200113233827-30e758c05e50
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/containerd/containerd v1.3.1
 	github.com/containerd/fifo v0.0.0-20190816180239-bda0ff6ed73c // indirect
@@ -37,6 +38,7 @@ require (
 	github.com/kr/pty v1.1.8
 	github.com/onsi/ginkgo v1.10.3
 	github.com/onsi/gomega v1.7.1
+	github.com/openSUSE/umoci v0.4.5
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
 	github.com/opencontainers/runc v1.0.0-rc9
@@ -58,13 +60,14 @@ require (
 	google.golang.org/grpc v1.25.1
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
-	k8s.io/client-go v0.0.0
+	k8s.io/client-go v10.0.0+incompatible
 	k8s.io/cri-api v0.0.0
 	k8s.io/kubernetes v1.13.0
 	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6
 )
 
 replace (
+	github.com/containers/image/v5 => github.com/anuvu/image/v5 v5.0.0-anuvu5
 	github.com/godbus/dbus => github.com/godbus/dbus v0.0.0-20190623212516-8a1682060722
 	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v0.1.2-0.20190408193819-a1b50f621a48
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2

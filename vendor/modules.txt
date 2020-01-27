@@ -29,6 +29,15 @@ github.com/Microsoft/hcsshim/internal/wclayer
 github.com/Microsoft/hcsshim/osversion
 # github.com/VividCortex/ewma v1.1.1
 github.com/VividCortex/ewma
+# github.com/anuvu/atomfs v0.0.0-20200113233827-30e758c05e50
+github.com/anuvu/atomfs
+github.com/anuvu/atomfs/db
+github.com/anuvu/atomfs/mount
+github.com/anuvu/atomfs/types
+# github.com/anuvu/stacker v0.4.1-0.20200113225657-ae7c48e3dc7f
+github.com/anuvu/stacker/oci
+# github.com/apex/log v1.1.1
+github.com/apex/log
 # github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.1+incompatible
@@ -96,7 +105,7 @@ github.com/containers/buildah/pkg/unshare
 github.com/containers/buildah/util
 # github.com/containers/conmon v2.0.9+incompatible
 github.com/containers/conmon/runner/config
-# github.com/containers/image/v5 v5.1.0
+# github.com/containers/image/v5 v5.1.0 => github.com/anuvu/image/v5 v5.0.0-anuvu5
 github.com/containers/image/v5/copy
 github.com/containers/image/v5/directory
 github.com/containers/image/v5/directory/explicitfilepath
@@ -134,6 +143,7 @@ github.com/containers/image/v5/transports
 github.com/containers/image/v5/transports/alltransports
 github.com/containers/image/v5/types
 github.com/containers/image/v5/version
+github.com/containers/image/v5/zot
 # github.com/containers/libpod v1.6.3-0.20191101152258-04e8bf3dba50
 github.com/containers/libpod/cmd/podman/cliconfig
 github.com/containers/libpod/libpod
@@ -328,6 +338,8 @@ github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/etcd-io/bbolt v1.3.3
 github.com/etcd-io/bbolt
+# github.com/freddierice/go-losetup v0.0.0-20170407175016-fc9adea44124
+github.com/freddierice/go-losetup
 # github.com/fsnotify/fsnotify v1.4.7
 github.com/fsnotify/fsnotify
 # github.com/fsouza/go-dockerclient v1.5.0
@@ -420,6 +432,8 @@ github.com/kr/pty
 github.com/lithammer/dedent
 # github.com/mattn/go-shellwords v1.0.6
 github.com/mattn/go-shellwords
+# github.com/mattn/go-sqlite3 v1.10.0
+github.com/mattn/go-sqlite3
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mistifyio/go-zfs v2.1.1+incompatible
@@ -472,6 +486,25 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
+# github.com/openSUSE/umoci v0.4.5
+github.com/openSUSE/umoci
+github.com/openSUSE/umoci/mutate
+github.com/openSUSE/umoci/oci/cas
+github.com/openSUSE/umoci/oci/cas/dir
+github.com/openSUSE/umoci/oci/casext
+github.com/openSUSE/umoci/oci/casext/mediatype
+github.com/openSUSE/umoci/oci/config/convert
+github.com/openSUSE/umoci/oci/config/generate
+github.com/openSUSE/umoci/oci/layer
+github.com/openSUSE/umoci/pkg/fseval
+github.com/openSUSE/umoci/pkg/hardening
+github.com/openSUSE/umoci/pkg/idtools
+github.com/openSUSE/umoci/pkg/mtreefilter
+github.com/openSUSE/umoci/pkg/system
+github.com/openSUSE/umoci/pkg/testutils
+github.com/openSUSE/umoci/pkg/unpriv
+github.com/openSUSE/umoci/third_party/shared
+github.com/openSUSE/umoci/third_party/user
 # github.com/opencontainers/go-digest v1.0.0-rc1
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
@@ -536,10 +569,14 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
+# github.com/rootless-containers/proto v0.1.0
+github.com/rootless-containers/proto/go-proto
 # github.com/russross/blackfriday v1.5.2
 github.com/russross/blackfriday
 # github.com/russross/blackfriday/v2 v2.0.1
 github.com/russross/blackfriday/v2
+# github.com/schollz/sqlite3dump v1.2.4
+github.com/schollz/sqlite3dump
 # github.com/seccomp/containers-golang v0.3.1
 github.com/seccomp/containers-golang
 # github.com/seccomp/libseccomp-golang v0.9.1
@@ -575,6 +612,10 @@ github.com/vbatts/git-validation/rules/dco
 github.com/vbatts/git-validation/rules/messageregexp
 github.com/vbatts/git-validation/rules/shortsubject
 github.com/vbatts/git-validation/validate
+# github.com/vbatts/go-mtree v0.4.4
+github.com/vbatts/go-mtree
+github.com/vbatts/go-mtree/pkg/govis
+github.com/vbatts/go-mtree/xattr
 # github.com/vbatts/tar-split v0.11.1
 github.com/vbatts/tar-split/archive/tar
 github.com/vbatts/tar-split/tar/asm
@@ -612,6 +653,7 @@ golang.org/x/crypto/openpgp/errors
 golang.org/x/crypto/openpgp/packet
 golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
+golang.org/x/crypto/ripemd160
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
 golang.org/x/net/context
@@ -824,7 +866,7 @@ k8s.io/apiserver/pkg/features
 k8s.io/apiserver/pkg/server/httplog
 k8s.io/apiserver/pkg/util/feature
 k8s.io/apiserver/pkg/util/wsstream
-# k8s.io/client-go v0.0.0 => k8s.io/kubernetes/staging/src/k8s.io/client-go v0.0.0-20191218085820-ac4079a5cc22
+# k8s.io/client-go v10.0.0+incompatible => k8s.io/kubernetes/staging/src/k8s.io/client-go v0.0.0-20191218085820-ac4079a5cc22
 k8s.io/client-go/discovery
 k8s.io/client-go/informers
 k8s.io/client-go/informers/admissionregistration
