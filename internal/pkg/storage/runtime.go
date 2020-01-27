@@ -470,8 +470,11 @@ func (r *runtimeService) GetRunDir(id string) (string, error) {
 // service to pull and manage images, and its store to manage containers based
 // on those images.
 func GetRuntimeService(ctx context.Context, storageImageServer ImageServer) RuntimeServer {
+	/*
 	return &runtimeService{
 		storageImageServer: storageImageServer,
 		ctx:                ctx,
 	}
+	*/
+	return newAtomfsServer(storeImageServer)
 }
