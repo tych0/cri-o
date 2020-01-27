@@ -476,5 +476,5 @@ func GetRuntimeService(ctx context.Context, storageImageServer ImageServer) Runt
 		ctx:                ctx,
 	}
 	*/
-	return newAtomfsServer(storeImageServer)
+	return newAtomfsServer(ctx, storageImageServer)
 }

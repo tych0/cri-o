@@ -2,40 +2,67 @@ package storage
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"path"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/anuvu/atomfs"
+	"github.com/containers/image/v5/copy"
+	"github.com/containers/image/v5/docker"
+	"github.com/containers/image/v5/oci/layout"
+	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/types"
+	"github.com/containers/image/v5/zot"
 	"github.com/containers/storage/pkg/idtools"
+	ispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/openSUSE/umoci"
+	"github.com/openSUSE/umoci/oci/casext"
+	"github.com/pkg/errors"
 )
 
 type atomfsRuntimeServer struct {
-	ctx        context.Context
-	graphRoot  string
-	runtimeDir string
+	ctx             context.Context
+	graphRoot       string
+	runtimeDir      string
+	runtimeMetadata map[string]*RuntimeContainerMetadata
 }
 
-func newAtomfsServer(ctx context.Context, imgServer Server) (RuntimeServer, error) {
-	return &atomfsRuntimeServer{ctx, imgServer.GetStore().GraphRoot(), imgServer.GetStore().RunRoot()}
+func newAtomfsServer(ctx context.Context, imgServer ImageServer) RuntimeServer {
+	return &atomfsRuntimeServer{
+		ctx,
+		imgServer.GetStore().GraphRoot(),
+		imgServer.GetStore().RunRoot(),
+		map[string]*RuntimeContainerMetadata{},
+	}
 }
 
 func (ars *atomfsRuntimeServer) CreatePodSandbox(systemContext *types.SystemContext, podName, podID, imageName, imageAuthFile, imageID, containerName, metadataName, uid, namespace string, attempt uint32, idMappings *idtools.IDMappings, labelOptions []string) (ContainerInfo, error) {
-	return ars.CreateContainer(), nil // MMCC: todo, this was ars.CreateContainer(...)
+	return ars.createContainerOrPodSandbox(systemContext, podName, podID, imageName, imageAuthFile, imageID, containerName, podID, metadataName, uid, namespace, attempt, idMappings, labelOptions, true)
 }
 
 func (ars *atomfsRuntimeServer) RemovePodSandbox(idOrName string) error {
 	return ars.DeleteContainer(idOrName)
 }
 
-/* ?
 // GetContainerMetadata returns the metadata we've stored for a container.
-GetContainerMetadata(idOrName string) (RuntimeContainerMetadata, error)
+func (ars *atomfsRuntimeServer) GetContainerMetadata(idOrName string) (RuntimeContainerMetadata, error) {
+	md, ok := ars.runtimeMetadata[idOrName]
+	if !ok {
+		return RuntimeContainerMetadata{}, ErrInvalidContainerID
+	}
+	return *md, nil
+}
+
 // SetContainerMetadata updates the metadata we've stored for a container.
-SetContainerMetadata(idOrName string, metadata *RuntimeContainerMetadata) error
-*/
-func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemContext, podName, podID, imageName, imageID, containerName, containerID, metadataName string, attempt uint32, idMappings *idtools.IDMappings, labelOptions []string) (ContainerInfo, error) {
+func (ars *atomfsRuntimeServer) SetContainerMetadata(idOrName string, metadata *RuntimeContainerMetadata) error {
+	ars.runtimeMetadata[idOrName] = metadata
+	return nil
+}
+
+func (ars *atomfsRuntimeServer) createContainerOrPodSandbox(systemContext *types.SystemContext, podName, podID, imageName, imageAuthFile, imageID, containerName, containerID, metadataName, uid, namespace string, attempt uint32, idMappings *idtools.IDMappings, labelOptions []string, isPauseImage bool) (ContainerInfo, error) {
 	if podName == "" || podID == "" {
 		return ContainerInfo{}, ErrInvalidPodName
 	}
@@ -49,25 +76,20 @@ func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemConte
 		metadataName = containerName
 	}
 
-	oci, err := umoci.OpenLayout(path.Join(ars.graphRoot, "oci"))
+	var oci casext.Engine
+	var err error
+	ociDir := path.Join(ars.graphRoot, "oci")
+        if _, statErr := os.Stat(ociDir); statErr != nil {
+                oci, err = umoci.CreateLayout(ociDir)
+        } else {
+                oci, err = umoci.OpenLayout(ociDir)
+        }
 	if err != nil {
-		return err
+		return ContainerInfo{}, err
 	}
-
 	defer oci.Close()
 
-	manifest, err := lookupManifest(oci, containerName)
-	if err != nil {
-		return ContainerInfo{}, err
-	}
-
-	config, err := lookupConfig(oci, manifest.Config)
-	if err != nil {
-		return ContainerInfo{}, err
-	}
-
-	ci := ContainerInfo{}
-	err = imageCopy(stackerlib.ImageCopyOpts{
+	err = imageCopy(ImageCopyOpts{
 		Src:      imageName,
 		Dest:     fmt.Sprintf("oci:%s/oci:%s", ars.graphRoot, containerName),
 		Progress: nil,
@@ -89,6 +111,7 @@ func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemConte
 		Attempt:       attempt,
 		CreatedAt:     time.Now().Unix(),
 	}
+	ars.runtimeMetadata[containerID] = &metadata
 
 	containerDir, err := ars.GetWorkDir(containerID)
 	if err != nil {
@@ -100,14 +123,28 @@ func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemConte
 		return ContainerInfo{}, err
 	}
 
+	manifest, err := lookupManifest(oci, containerName)
+	if err != nil {
+		return ContainerInfo{}, err
+	}
+
+	config, err := lookupConfig(oci, manifest.Config)
+	if err != nil {
+		return ContainerInfo{}, err
+	}
+
 	return ContainerInfo{
 		ID:           containerID,
-		Dir:          ars.GetWorkDir,
+		Dir:          containerDir,
 		RunDir:       containerRunDir,
-		Config:       imageConfig,
+		Config:       &config,
 		ProcessLabel: "", // FIXME: selinux labels
 		MountLabel:   "",
 	}, nil
+}
+
+func (ars *atomfsRuntimeServer) CreateContainer(systemContext *types.SystemContext, podName, podID, imageName, imageID, containerName, containerID, metadataName string, attempt uint32, idMappings *idtools.IDMappings, labelOptions []string) (ContainerInfo, error) {
+	return ars.createContainerOrPodSandbox(systemContext, podName, podID, imageName, "", imageID, containerName, containerID, metadataName, "", "", attempt, idMappings, labelOptions, false)
 }
 
 func (ars *atomfsRuntimeServer) DeleteContainer(idOrName string) error {
@@ -122,11 +159,11 @@ func (ars *atomfsRuntimeServer) DeleteContainer(idOrName string) error {
 		return err
 	}
 
-	return oci.GC()
+	return oci.GC(ars.ctx)
 }
 
 func (ars *atomfsRuntimeServer) StartContainer(idOrName string) (string, error) {
-	moutpoint := path.Join(ars.runtimeDir, "rootfses", idOrName)
+	mountpoint := path.Join(ars.runtimeDir, "rootfses", idOrName)
 	metadata := path.Join(ars.runtimeDir, "atomfs-metadata")
 	writable := true
 	opts := atomfs.MountOCIOpts{
@@ -146,7 +183,7 @@ func (ars *atomfsRuntimeServer) StartContainer(idOrName string) (string, error) 
 }
 
 func (ars *atomfsRuntimeServer) StopContainer(idOrName string) error {
-	moutpoint := path.Join(ars.runtimeDir, "rootfses", idOrName)
+	mountpoint := path.Join(ars.runtimeDir, "rootfses", idOrName)
 	metadata := path.Join(ars.runtimeDir, "atomfs-metadata")
 	writable := true
 	opts := atomfs.MountOCIOpts{
@@ -162,17 +199,32 @@ func (ars *atomfsRuntimeServer) StopContainer(idOrName string) error {
 
 func (ars *atomfsRuntimeServer) GetWorkDir(id string) (string, error) {
 	dir := path.Join(ars.graphRoot, "workdir", id)
-	_, err := os.MkdirAll(dir, 0755)
-	return dir, err
+	return dir, os.MkdirAll(dir, 0755)
 }
 
 func (ars *atomfsRuntimeServer) GetRunDir(id string) (string, error) {
 	dir := path.Join(ars.runtimeDir, "rundir", id)
-	_, err := os.MkdirAll(dir, 0755)
-	return dir, err
+	return dir, os.MkdirAll(dir, 0755)
 }
 
 // == dumb brute force gitrdun copy paste to avoid dep on anuvu/stacker/lib
+
+var urlSchemes map[string]func(string) (types.ImageReference, error)
+
+func RegisterURLScheme(scheme string, f func(string) (types.ImageReference, error)) {
+	urlSchemes[scheme] = f
+}
+
+func init() {
+	// These should only be things which have pure go dependencies. Things
+	// with additional C dependencies (e.g. containers/image/storage)
+	// should live in their own package, so people can choose to add those
+	// deps or not.
+	urlSchemes = map[string]func(string) (types.ImageReference, error){}
+	RegisterURLScheme("oci", layout.ParseReference)
+	RegisterURLScheme("docker", docker.ParseReference)
+	RegisterURLScheme("zot", zot.Transport.ParseReference)
+}
 
 func localRefParser(ref string) (types.ImageReference, error) {
 	parts := strings.SplitN(ref, ":", 2)
@@ -197,7 +249,7 @@ type ImageCopyOpts struct {
 	Progress     io.Writer
 }
 
-func ImageCopy(opts ImageCopyOpts) error {
+func imageCopy(opts ImageCopyOpts) error {
 	srcRef, err := localRefParser(opts.Src)
 	if err != nil {
 		return err
