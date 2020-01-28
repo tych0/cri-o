@@ -180,7 +180,7 @@ func (ars *atomfsRuntimeServer) DeleteContainer(idOrName string) error {
 
 func (ars *atomfsRuntimeServer) StartContainer(idOrName string) (string, error) {
 	name := ars.resolveName(idOrName)
-	mountpoint := path.Join(ars.runtimeDir, "rootfses", idOrName)
+	mountpoint := path.Join(ars.runtimeDir, "rootfses", name)
 	metadata := path.Join(ars.runtimeDir, "atomfs-metadata")
 	writable := true
 	opts := atomfs.MountOCIOpts{
@@ -189,6 +189,11 @@ func (ars *atomfsRuntimeServer) StartContainer(idOrName string) (string, error) 
 		Tag:          name,
 		Target:       mountpoint,
 		Writable:     writable,
+	}
+
+	err := os.MkdirAll(mountpoint, 0755)
+	if err != nil {
+		return "", err
 	}
 
 	mol, err := atomfs.BuildMoleculeFromOCI(opts)
