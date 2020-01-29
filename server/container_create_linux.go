@@ -291,19 +291,30 @@ func (s *Server) createSandboxContainer(ctx context.Context, containerID, contai
 
 	// Get imageName and imageRef that are later requested in container status
 	var (
-		imgResult    *storage.ImageResult
+		//imgResult    *storage.ImageResult
 		imgResultErr error
+		imageName = ""
+		imageRef = ""
+
 	)
 	for _, img := range images {
+		log.Infof(ctx, "checking img status %v", img)
+		/*
 		imgResult, imgResultErr = s.StorageImageServer().ImageStatus(s.systemContext, img)
+		_, imgResultErr = s.StorageImageServer().ImageStatus(s.systemContext, img)
 		if imgResultErr == nil {
 			break
 		}
+		*/
+		imageName = img
+		imageRef = img
+		image = img
 	}
 	if imgResultErr != nil {
 		return nil, imgResultErr
 	}
 
+	/*
 	imageName := imgResult.Name
 	imageRef := imgResult.ID
 	if len(imgResult.RepoDigests) > 0 {
@@ -312,6 +323,7 @@ func (s *Server) createSandboxContainer(ctx context.Context, containerID, contai
 
 	specgen.AddAnnotation(annotations.Image, image)
 	specgen.AddAnnotation(annotations.ImageName, imageName)
+	*/
 	specgen.AddAnnotation(annotations.ImageRef, imageRef)
 
 	selinuxConfig := containerConfig.GetLinux().GetSecurityContext().GetSelinuxOptions()
@@ -330,7 +342,7 @@ func (s *Server) createSandboxContainer(ctx context.Context, containerID, contai
 
 	containerInfo, err := s.StorageRuntimeServer().CreateContainer(s.systemContext,
 		sb.Name(), sb.ID(),
-		image, imgResult.ID,
+		image, imageName,
 		containerName, containerID,
 		metadata.Name,
 		metadata.Attempt,
