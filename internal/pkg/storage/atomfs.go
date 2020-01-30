@@ -206,7 +206,7 @@ func (ars *atomfsRuntimeServer) StartContainer(idOrName string) (string, error) 
 
 func (ars *atomfsRuntimeServer) StopContainer(idOrName string) error {
 	name := ars.resolveName(idOrName)
-	mountpoint := path.Join(ars.runtimeDir, "rootfses", idOrName)
+	mountpoint := path.Join(ars.runtimeDir, "rootfses", name)
 	metadata := path.Join(ars.runtimeDir, "atomfs-metadata")
 	writable := true
 	opts := atomfs.MountOCIOpts{
